@@ -122,7 +122,7 @@ y = np.zeros((c_v_n,1))
 cross_validated_docs = []
 c_v_y = np.zeros((c_v_n, 1))
 c_v_taxons = np.zeros((c_v_n, 1))
-for i, filename in enumerate(items[train_n:train_n + c_v_n]):
+for i, filename in enumerate(items[train_n + 1:train_n + c_v_n]):
     file_with_path = dir + "/" + filename
     with open(file_with_path) as file:
         try:
@@ -136,7 +136,7 @@ for i, filename in enumerate(items[train_n:train_n + c_v_n]):
             print("cross validate: " + filename + " couldn't be loaded or caused JSON error")
             cross_validated_docs.append("")
 
-c_v_x = vectorizer.transform(cross_validated_docs).toarray()
-c_v_x = np.append(c_v_x, c_v_taxons, axis=1)
+c_v_x = vectorizer.transform(cross_validated_docs)
+c_v_x = np.append(c_v_x.toarray(), c_v_taxons, axis=1)
 predictions = reg.predict(c_v_x)
 print("Mean accuracy of cross validation set: " + str(np.mean(predictions == c_v_y)))
