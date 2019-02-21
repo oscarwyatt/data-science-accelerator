@@ -68,7 +68,7 @@ def generate_corpus_and_vectorise(discretizer, pageview_values):
     locales = []
     primary_publishing_organisations = []
     y = []
-    #
+
     # empty_body_count = 0
     # empty_title_count = 0
     # empty_description_count = 0
@@ -135,7 +135,7 @@ def generate_corpus_and_vectorise(discretizer, pageview_values):
 
 
     y = np.asarray(y)
-    max_features = 250
+    max_features = 500
     vectorizer = TfidfVectorizer(tokenizer=tokenize, analyzer='word', stop_words='english', max_features=max_features )
     X = vectorizer.fit_transform(corpus).toarray()
     # corpus = []
@@ -266,3 +266,7 @@ if True:
     # Average f1 score :0.7922, with 5 bins an kmeans strat, 5 extra features and 1000 word features & 10,000 docs & ROUNDED log
     # Average f1 score :0.7917, with 5 bins an kmeans strat, 5 extra features and 2000 word features & 10,000 docs & ROUNDED log
     #  Average f1 score :0.815, with 5 bins an kmeans strat, 5 extra features and 1000 word features & 90,000 docs & ROUNDED log
+
+
+
+

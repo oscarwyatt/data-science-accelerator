@@ -52,7 +52,7 @@ items = os.listdir(dir)
 taxon_names = []
 
 pageviews = utils.load_pageviews()
-count = 1000#len(pageviews)
+count = len(pageviews)
 extra_features = False
 locales = []
 primary_publishing_organisations = []
@@ -136,6 +136,6 @@ for train_index, test_index in kf.split(data):
     test_extra_features = np.asarray(extra_features[test_index])
     X_test = np.append(X_test, test_extra_features, axis=1)
     X_train = np.append(X_train, train_extra_features, axis=1)
-    scores.append(utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, True))
+    scores.append(utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test))
 
 print("Average f1 score :" + str(np.mean(scores)))

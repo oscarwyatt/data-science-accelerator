@@ -194,5 +194,6 @@ def show_confusion_matrix(y_true, y_pred):
     plt.tight_layout()
     plt.show()
 
-
+def content_types():
+    return ['answer', 'calendar', 'case_study', 'consultation', 'contact', 'corporate_information_page', 'detailed_guide', 'document_collection', 'email_alert_signup', 'finder', 'finder_email_signup', 'generic', 'generic_with_external_related_links', 'guide', 'help_page', 'hmrc_manual', 'hmrc_manual_section', 'html_publication', 'knowledge_alpha', 'licence', 'local_transaction', 'manual', 'manual_section', 'news_article', 'organisation', 'person', 'place', 'publication', 'role', 'role_appointment', 'simple_smart_answer', 'specialist_document', 'speech', 'statistical_data_set', 'statistics_announcement', 'take_part', 'taxon', 'topic', 'topical_event_about_page', 'transaction', 'travel_advice', 'working_group', 'world_location', 'world_location_news_article']
 
