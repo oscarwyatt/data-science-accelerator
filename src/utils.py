@@ -10,6 +10,8 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import itertools
+import json
+import math
 
 def extract_content_item_body(content_item):
     try:
@@ -21,6 +23,12 @@ def extract_content_item_body(content_item):
 def extract_content_item_title(content_item):
     try:
         return str(content_item["title"])
+    except:
+        return ""
+
+def extract_content_item_schema_name(content_item):
+    try:
+        return content_item['schema_name']
     except:
         return ""
 
@@ -85,20 +93,15 @@ def load_pageviews():
         return pageviews
 
 def pageviews_pickle_file():
-    return "data/processed/pageviews_data.p"
+    return "data/processed/processed_pageviews.pkl"
 
-def generate_pageviews_data():
-    pageviews = {}
-    with open("data/raw/shuffled_guidance_pageview_data.csv") as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            num_page_views = int(row['page_views'])
-            if num_page_views > 0:
-                num_page_views = int(math.log10(num_page_views))
-            pageviews[row['page'].replace("/", "_")[0:200]] = num_page_views
-    with open(pageviews_pickle_file, 'wb') as fp:
-        pickle.dump(pageviews, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    return pageviews
+def load_raw_pageviews():
+    with open(raw_pageviews_pickle_file(), 'rb') as fp:
+        pageviews = pickle.load(fp)
+        return pageviews
+
+def raw_pageviews_pickle_file():
+    return "data/raw/raw_pageviews.pkl"
 
 def extract_content_item(filename):
     file_with_path = content_items_dir() + "/" + filename
@@ -117,25 +120,28 @@ def extract_content_item(filename):
         except:
             print(filename + " couldn't be loaded or caused JSON error")
             content_item = False
-
     else:
-        with open(file_with_path) as file:
-            try:
-                content_item = json.load(file)
-            except:
-                print(filename + " couldn't be loaded or caused JSON error")
-                content_item = False
-            else:
-                with open(saved_processed_file_with_path, 'wb') as fp:
-                    pickle.dump(content_item, fp, protocol=pickle.HIGHEST_PROTOCOL)
-                body = extract_content_item_body(content_item)
-                with open(saved_processed_body_file_with_path, 'wb') as fp:
-                    pickle.dump(body, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
+        try:
+            with open(file_with_path) as file:
+                try:
+                    content_item = json.load(file)
+                except:
+                    print(filename + " couldn't be loaded or caused JSON error")
+                    content_item = False
+                else:
+                    with open(saved_processed_file_with_path, 'wb') as fp:
+                        pickle.dump(content_item, fp, protocol=pickle.HIGHEST_PROTOCOL)
+                    body = extract_content_item_body(content_item)
+                    with open(saved_processed_body_file_with_path, 'wb') as fp:
+                        pickle.dump(body, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        except:
+            print(file_with_path + " doesn't exist")
+    schema = extract_content_item_schema_name(content_item)
+    if schema not in schema_types():
+        return [False, "", "", ""]
     title = extract_content_item_title(content_item)
     description = extract_content_item_description(content_item)
     return [content_item, body, title, description]
-
 
 def content_items_dir():
     return "data/raw/content_items"
@@ -149,6 +155,8 @@ def generate_discretizer(pageviews):
     discretizer.fit(view_numbers)
     return [discretizer, view_numbers]
 
+def process_view_numbers_for_page(views):
+    return math.floor(math.log10(views))
 
 def get_taxon_name_and_count(content_item):
     parent_taxon = content_item.get("links", {}).get("taxons", {})
@@ -166,12 +174,27 @@ def get_taxon_name_and_count(content_item):
     else:
         return ["", 0]
 
+def get_schema_type(schema_types, content_item):
+    schema = content_item['schema_name']
+    if schema not in schema_types:
+        schema_types.append(schema)
+    return [schema_types.index(schema), schema_types]
+
+def get_document_type(document_types, content_item):
+    document_type = content_item['document_type']
+    if document_type not in document_types:
+        document_types.append(document_type)
+    return [document_types.index(document_type), document_types]
+
 def train_and_test_logistic_regression(X_train, y_train, X_test, y_test, show_cf=False):
-    reg = LogisticRegression(solver='liblinear', multi_class='ovr', max_iter=200).fit(X_train, y_train)
+    reg = train_logistic_regression(X_train, y_train)
     pred = reg.predict(X_test)
     if show_cf:
         show_confusion_matrix(y_test, pred)
     return f1_score(y_test, pred, average='micro')
+
+def train_logistic_regression(X_train, y_train):
+    return LogisticRegression(solver='liblinear', multi_class='ovr', max_iter=200).fit(X_train, y_train)
 
 def show_confusion_matrix(y_true, y_pred):
     cnf_matrix = confusion_matrix(y_true, y_pred)
@@ -194,6 +217,5 @@ def show_confusion_matrix(y_true, y_pred):
     plt.tight_layout()
     plt.show()
 
-def content_types():
+def schema_types():
     return ['answer', 'calendar', 'case_study', 'consultation', 'contact', 'corporate_information_page', 'detailed_guide', 'document_collection', 'email_alert_signup', 'finder', 'finder_email_signup', 'generic', 'generic_with_external_related_links', 'guide', 'help_page', 'hmrc_manual', 'hmrc_manual_section', 'html_publication', 'knowledge_alpha', 'licence', 'local_transaction', 'manual', 'manual_section', 'news_article', 'organisation', 'person', 'place', 'publication', 'role', 'role_appointment', 'simple_smart_answer', 'specialist_document', 'speech', 'statistical_data_set', 'statistics_announcement', 'take_part', 'taxon', 'topic', 'topical_event_about_page', 'transaction', 'travel_advice', 'working_group', 'world_location', 'world_location_news_article']
-

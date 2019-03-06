@@ -1,9 +1,11 @@
+# Plots GA data showing the kind of referral that a page gets against the number of visits for that referral type
+
+
 import matplotlib.pyplot as plt
 import os
 import csv
 
 definitions = ["path", "date", "range", "type", "segment", "bounce", "exit", "sessions", "time_on_page", "page_views"]
-
 
 referral = []
 organic = []
@@ -22,7 +24,6 @@ for filename in files:
             direct = []
             email = []
             totals = []
-            print("opening")
             csv_reader = csv.reader(file, delimiter=',')
             line_count = 0
             segment_count = 1
@@ -33,12 +34,10 @@ for filename in files:
                     # print(row[8])
                     data = int(row[8].replace(',', ''))
                     if segment == 'Referral':
-                        # referral = relative_append(referral, data)
                         referral.append(data)
                         totals.append(total)
                         total = 0
                     elif segment == 'Organic':
-                        # organic = relative_append(organic, data)
                         organic.append(data)
                     elif segment == 'Direct/none':
                         # direct = relative_append(direct, data)
@@ -49,10 +48,9 @@ for filename in files:
                     else:
                         print(row)
                         print(segment)
-                        raise ValueError('A very specific bad thing happened.')
+                        raise ValueError("Couldn't recognise the referral type")
                     total += data
                 line_count += 1
-
         date_index = 0
         dates = []
         for data in referral:
@@ -65,5 +63,3 @@ for filename in files:
 
 plt.ylabel('Pageviews')
 plt.show()
-
-

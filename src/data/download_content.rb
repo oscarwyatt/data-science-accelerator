@@ -1,24 +1,18 @@
-require 'CSV'
+# Simply follow these steps and all live content items will be saved to a folder as separate json files
 
-# From some other app with filenames in csv
-data = CSV.open("all_guidance_pageview_data.csv").read
-data[2...data.length].each do |row|
-    url = row.first
-    begin
-        filename = url.gsub("/", "_")[0...200] + ".json"
+# 1. `cd ~/govuk/govuk-puppet/development-vm`
+# 2. `vagrant up && vagrant ssh`
+# 3. `cd /var/govuk/content-store`
+# 4. `rails c`
+
+count = 0
+ContentItem.all.each do |content_item|
+    if content_item["phase"] == "live"
+        count += 1
+        filename = content_item["base_path"].gsub("/", "_")[0...200] + ".json"
         File.open("content_items/#{filename}","w") do |f|
-          f.write(Services.content_store.content_item(url).to_h.to_json)
+          f.write(ContentItemPresenter.new(content_item, content_item["base_path"]).to_json)
         end
-    rescue
-        p "couldn't download: #{url}"
     end
 end
-
-
-# From within content store
-ContentItem.all.each do |content_item|
-	filename = content_item["base_path"].gsub("/", "_")[0...200] + ".json"
-	File.open("content_items/#{filename}","w") do |f|
-	  f.write(ContentItemPresenter.new(content_item, api_url_method).to_json)
-	end
-end
+puts "Saved #{count} content items to #{Dir.pwd + "/content_items"}"
