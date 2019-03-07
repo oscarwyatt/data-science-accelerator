@@ -148,9 +148,7 @@ def content_items_dir():
     return "data/raw/content_items"
 
 def generate_discretizer(pageviews):
-    pageview_values = list(pageviews.values())
-    sorted_pageview_values = pageview_values
-    sorted_pageview_values.sort()
+    sorted_pageview_values = sorted(list(pageviews.values()))
     view_numbers = np.array(sorted_pageview_values).reshape(-1, 1)
     discretizer = KBinsDiscretizer(encode='ordinal', n_bins=number_bins(), strategy='kmeans')
     discretizer.fit(view_numbers)
@@ -190,21 +188,20 @@ def get_document_type(document_types, content_item):
         document_types.append(document_type)
     return [document_types.index(document_type), document_types]
 
-def train_and_test_logistic_regression(X_train, y_train, X_test, y_test, show_cf=False):
+def train_and_test_logistic_regression(X_train, y_train, X_test, y_test, calculate_cf=False):
     reg = train_logistic_regression(X_train, y_train)
     pred = reg.predict(X_test)
+    accuracy = reg.score(X_test, y_test)
     confusion_matrix = np.zeros((number_bins(),number_bins()))
-    if show_cf:
-        confusion_matrix = show_confusion_matrix(y_test, pred)
-    return [f1_score(y_test, pred, average='micro'), confusion_matrix]
+    if calculate_cf:
+        confusion_matrix = calculate_confusion_matrix(y_test, pred)
+    return [f1_score(y_test, pred, average='micro'), accuracy, confusion_matrix]
 
 def train_logistic_regression(X_train, y_train):
     return LogisticRegression(solver='liblinear', multi_class='ovr', max_iter=200).fit(X_train, y_train)
 
-def show_confusion_matrix(y_true, y_pred):
-    cnf_matrix = confusion_matrix(y_true, y_pred)
-    plot_confusion_matrix(cnf_matrix)
-    return cnf_matrix
+def calculate_confusion_matrix(y_true, y_pred):
+    return confusion_matrix(y_true, y_pred, ["low", "medium", "high"])
 
 def plot_confusion_matrix(cnf_matrix):
     print(cnf_matrix)
@@ -216,25 +213,20 @@ def plot_confusion_matrix(cnf_matrix):
     fmt = 'd'
     thresh = cnf_matrix.max() / 2.
     for i, j in itertools.product(range(cnf_matrix.shape[0]), range(cnf_matrix.shape[1])):
-        plt.text(j, i, format(cnf_matrix[i, j], fmt),
+        plt.text(j, i, cnf_matrix[i, j],
                  horizontalalignment="center",
                  color="white" if cnf_matrix[i, j] > thresh else "black")
 
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+    class_names = ["low", "medium", "high"]
+    tick_marks = np.arange(len(class_names))
+    plt.xticks(tick_marks, class_names, rotation=45)
+    plt.yticks(tick_marks, class_names)
+
     plt.tight_layout()
     plt.show()
     return cnf_matrix
 
 def schema_types():
     return ['answer', 'calendar', 'case_study', 'consultation', 'contact', 'corporate_information_page', 'detailed_guide', 'document_collection', 'email_alert_signup', 'finder', 'finder_email_signup', 'generic', 'generic_with_external_related_links', 'guide', 'help_page', 'hmrc_manual', 'hmrc_manual_section', 'html_publication', 'knowledge_alpha', 'licence', 'local_transaction', 'manual', 'manual_section', 'news_article', 'organisation', 'person', 'place', 'publication', 'role', 'role_appointment', 'simple_smart_answer', 'specialist_document', 'speech', 'statistical_data_set', 'statistics_announcement', 'take_part', 'taxon', 'topic', 'topical_event_about_page', 'transaction', 'travel_advice', 'working_group', 'world_location', 'world_location_news_article']
-
-def add_arguments():
-    parser = ArgumentParser()
-    parser.add_argument("-d", "--distribution-graph",
-                        default=False, help="Draw a graph of the distribution of the content item pageviews")
-    parser.add_argument("-i", "--feature-importance", default=False, help="Show graph of the importance of various features")
-    parser.add_argument("-c", "--confusion-matrix", default=False, help="Show confusion matrices during training")
-    parser.add_argument("-k", "--k-fold", default=False, help="Perform K-Fold")
-    parser.add_argument("-t", "--test", default=False, help="Split into training and test")
-    return vars(parser.parse_args())

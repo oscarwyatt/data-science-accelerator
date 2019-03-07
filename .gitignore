@@ -85,3 +85,6 @@ target/
 # vim
 *.swp
 *.swo
+
+venv/*
+venv

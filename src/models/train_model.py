@@ -1,20 +1,15 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-import nltk
-from nltk.stem.porter import PorterStemmer
+from argparse import ArgumentParser
 import sys
 sys.path.append("/Users/oscarwyatt/data_science/pageview_predictor/src/")
 import utils
 from sklearn.model_selection import KFold
-from sklearn.metrics import f1_score
 import traceback
 import warnings
 import sys
 from sklearn.ensemble import ExtraTreesClassifier
 import pickle
-from sklearn.preprocessing import normalize
 import math
 
 def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
@@ -39,118 +34,6 @@ def draw_content_item_distribution_graph(pageview_values, descretizer, view_numb
     plt.xlabel("Bin edges at: " + ", ".join([str(x) for x in discretizer.bin_edges_.tolist()[0]]) + "\n" +  "# items in each bin" + str(count))
     plt.show()
 
-stemmer = PorterStemmer()
-
-def stem_tokens(tokens, stemmer):
-    stemmed = []
-    for item in tokens:
-        stemmed.append(stemmer.stem(item))
-    return stemmed
-
-def tokenize(text):
-    tokens = nltk.word_tokenize(text)
-    stems = stem_tokens(tokens, stemmer)
-    return stems
-
-def generate_corpus_and_vectorise(discretizer, pageview_values):
-    corpus = []
-    title_corpus = []
-    description_corpus = []
-    items = os.listdir(utils.content_items_dir())
-    taxon_names = []
-
-    count = len(items)
-    extra_features = False
-    locales = []
-    primary_publishing_organisations = []
-    schema_types = []
-    document_types = []
-    y = []
-
-    for i, filename in enumerate(items[0:count]):
-        content_item, body, title, description = utils.extract_content_item(filename)
-        filename = filename.replace(".json", "").replace("_", "/")
-        if content_item != False and filename in pageviews:
-            page_views = pageview_values[filename]
-            y.append(discretizer.transform(np.array([page_views]).reshape(1, -1))[0][0])
-            corpus.append(body)
-            title_corpus.append(title)
-            description_corpus.append(description)
-            # Extra features
-            #   Taxon name and count feature
-            taxon_name, taxon_count = utils.get_taxon_name_and_count(content_item)
-            if taxon_name not in taxon_names:
-                taxon_names.append(taxon_name)
-            extra_feature = np.zeros((1,15))
-            extra_feature[0, 0] = taxon_names.index(taxon_name)
-            extra_feature[0, 1] = taxon_count
-            #   Number of links feature
-            extra_feature[0, 2] = utils.number_of_links(content_item)
-            # Number of words feature
-            extra_feature[0, 3] = utils.number_of_words(content_item)
-            # Locale feature
-            extra_feature[0, 4], locales = utils.locale(content_item, locales)
-            # Primary publishing organisation
-            extra_feature[0, 5], primary_publishing_organisations = utils.primary_publishing_organisation(content_item, primary_publishing_organisations)
-            # Number of documents
-            extra_feature[0, 6] = utils.number_of_documents(content_item)
-
-            extra_feature[0, 7] = utils.number_of_available_translations(content_item)
-
-            extra_feature[0, 8] = utils.number_of_organisations(content_item)
-
-            extra_feature[0, 9] = utils.number_of_topics(content_item)
-
-            extra_feature[0, 10] = utils.number_of_tags(content_item)
-
-            extra_feature[0, 11] = utils.number_of_emphasised_organisations(content_item)
-
-            extra_feature[0, 12] = utils.political(content_item)
-
-            extra_feature[0, 13], schema_types  = utils.get_schema_type(schema_types, content_item)
-
-            extra_feature[0, 14], document_types  = utils.get_schema_type(document_types, content_item)
-
-            if isinstance(extra_features, bool):
-                extra_features = extra_feature
-            else:
-                extra_features = np.append(extra_features, extra_feature, axis=0)
-
-    y = np.asarray(y)
-    max_features = 500
-    vectorizer = TfidfVectorizer(tokenizer=tokenize, analyzer='word', stop_words='english', max_features=max_features )
-    X = vectorizer.fit_transform(corpus).toarray()
-    corpus = []
-
-    title_vectorizer = TfidfVectorizer(tokenizer=tokenize, analyzer='word', stop_words='english', max_features=max_features )
-    title_X = title_vectorizer.fit_transform(title_corpus).toarray()
-    X = np.append(X, title_X, axis=1)
-    title_X = []
-
-    description_vectorizer = TfidfVectorizer(tokenizer=tokenize, analyzer='word', stop_words='english', max_features=max_features )
-    description_X = description_vectorizer.fit_transform(description_corpus).toarray()
-    X = np.append(X, description_X, axis=1)
-    description_X = []
-
-    extra_features = normalize(extra_features, axis=0, norm='max')
-    X = np.append(X, extra_features, axis=1)
-
-    print(X.shape)
-    print(extra_features.shape)
-    print("Training on " + str(len(y)) + " examples")
-
-    filename = "data/processed/x_shape_" + str(X.shape) + "max_features" + str(max_features) + "extra_features_" + str(len(extra_features))
-    x_file = filename + "_X"
-    y_file = filename + "_y"
-
-    with open(x_file, 'wb') as fp:
-        pickle.dump(X, fp)
-    with open(y_file, 'wb') as fp:
-        pickle.dump(y, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    print("X FILE: " + x_file)
-    print("Y FILE: " + y_file)
-    return [X, y]
 
 def show_feature_importance(X_extra_features, y):
     forest = ExtraTreesClassifier(n_estimators=250,
@@ -175,55 +58,77 @@ def show_feature_importance(X_extra_features, y):
     plt.xlim([-1, X_extra_features.shape[1]])
     plt.show()
 
-args = utils.add_arguments()
-pageviews = utils.load_pageviews()
-discretizer, view_numbers = utils.generate_discretizer(pageviews)
 
-if args["distribution_graph"]:
-    draw_content_item_distribution_graph(pageviews, discretizer, view_numbers)
+def main():
+    parser = ArgumentParser()
+    parser.add_argument("-m", "--model",
+                        default="vectorize", help="Choose between 'vectorize' and 'doc_to_vec'")
+    parser.add_argument("-d", "--distribution-graph",
+                        default=False, help="Draw a graph of the distribution of the content item pageviews")
+    parser.add_argument("-i", "--feature-importance", default=False, action='store_true', help="Show graph of the importance of various features")
+    parser.add_argument("-c", "--confusion-matrix", default=False, action='store_true', help="Show confusion matrices during training")
+    parser.add_argument("-k", "--k-fold", default=False, action='store_true', help="Perform K-Fold")
+    parser.add_argument("-t", "--test", default=False, action='store_true', help="Split into training and test")
+    args = vars(parser.parse_args())
 
-X = []
-y = []
-X, y = generate_corpus_and_vectorise(discretizer, pageviews)
+    model_file = "vectorize"
+    if args["model"] != "vectorize":
+        model_file = "doc_to_vec"
+    with open("data/processed/" + model_file + "_X", 'rb') as fp:
+        X = pickle.load(fp)
+    with open("data/processed/" + model_file + "_y", 'rb') as fp:
+        y = np.asarray(pickle.load(fp))
 
-if args["feature_importance"]:
-    show_feature_importance(X, y)
+    if args["distribution_graph"]:
+        pageviews = utils.load_pageviews()
+        discretizer, view_numbers = utils.generate_discretizer(pageviews)
+        draw_content_item_distribution_graph(pageviews, discretizer, view_numbers)
 
-if args["k_fold"]:
-    kf = KFold(n_splits=5)
-    kf.get_n_splits(X)
+    if args["feature_importance"]:
+        show_feature_importance(X, y)
 
-    scores = []
-    confusion_matrix = np.zeros((utils.number_bins(),utils.number_bins()))
-    for train_index, test_index in kf.split(X):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-        score, fold_confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
-        confusion_matrix = confusion_matrix + fold_confusion_matrix
-        scores.append(score)
+    if args["k_fold"]:
+        kf = KFold(n_splits=5)
+        kf.get_n_splits(X)
 
-    if args["confusion_matrix"]:
-        plot_confusion_matrix(confusion_matrix)
+        f1_scores = []
+        accuracy_scores = []
+        confusion_matrix = np.zeros((utils.number_bins(),utils.number_bins()))
+        for train_index, test_index in kf.split(X):
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            f1_score, accuracy_score, fold_confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
+            confusion_matrix = confusion_matrix + fold_confusion_matrix
+            f1_scores.append(f1_score)
+            accuracy_scores.append(accuracy_score)
 
-    print("Average f1 score :" + str(np.mean(scores)))
+        if args["confusion_matrix"]:
+            utils.plot_confusion_matrix(confusion_matrix)
 
-if args["test"]:
-    count = len(X)
-    split_index = math.floor(count * 0.8)
-    X_train = X[0:split_index]
-    X_test = X[split_index:]
-    y_train = y[0:split_index]
-    y_test = y[split_index:]
-    score, confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
-    confusion_matrix
+        print("Average f1 score :" + str(np.mean(f1_scores)))
+        print("Average accuracy score :" + str(np.mean(accuracy_scores)))
 
-    if args["confusion_matrix"]:
-        plot_confusion_matrix(confusion_matrix)
+    if args["test"]:
+        count = len(X)
+        split_index = math.floor(count * 0.8)
+        X_train = X[0:split_index]
+        X_test = X[split_index:]
+        y_train = y[0:split_index]
+        y_test = y[split_index:]
+        f1_score, accuracy_score, confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
+        confusion_matrix
 
-    print("F1 score for test data :" + str(score))
+        if args["confusion_matrix"]:
+            utils.plot_confusion_matrix(confusion_matrix)
+
+        print("Accuracy score for test data :" + str(accuracy_score))
+        print("F1 score for test data :" + str(f1_score))
 
 
-model = utils.train_logistic_regression(X, y)
-model_filename = "logistic_regression_model.pkl"
-pickle.dump(model, open(model_filename, 'wb'))
-print("Model saved to " + model_filename)
+    model = utils.train_logistic_regression(X, y)
+    model_filename = "logistic_regression_model.pkl"
+    pickle.dump(model, open(model_filename, 'wb'))
+    print("Model saved to " + model_filename)
+
+if __name__== "__main__":
+    main()
