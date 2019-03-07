@@ -1,6 +1,5 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 import os
-
 import numpy as np
 import matplotlib.pyplot as plt
 import nltk
@@ -17,7 +16,6 @@ from sklearn.ensemble import ExtraTreesClassifier
 import pickle
 from sklearn.preprocessing import normalize
 from argparse import ArgumentParser
-
 
 def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
     log = file if hasattr(file,'write') else sys.stderr
@@ -61,7 +59,7 @@ def generate_corpus_and_vectorise(discretizer, pageview_values):
     items = os.listdir(utils.content_items_dir())
     taxon_names = []
 
-    count = len(items)
+    count = 100#len(items)
     extra_features = False
     locales = []
     primary_publishing_organisations = []
@@ -201,10 +199,17 @@ kf = KFold(n_splits=5)
 kf.get_n_splits(X)
 
 scores = []
+confusion_matrix = np.zeros((utils.number_bins(),utils.number_bins()))
 for train_index, test_index in kf.split(X):
     X_train, X_test = X[train_index], X[test_index]
     y_train, y_test = y[train_index], y[test_index]
-    scores.append(utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"]))
+    score, fold_confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
+    confusion_matrix = confusion_matrix + fold_confusion_matrix
+    scores.append(score)
+
+if args["confusion_matrix"]:
+    plot_confusion_matrix(confusion_matrix)
+
 print("Average f1 score :" + str(np.mean(scores)))
 model = utils.train_logistic_regression(X, y)
 model_filename = "logistic_regression_model.pkl"

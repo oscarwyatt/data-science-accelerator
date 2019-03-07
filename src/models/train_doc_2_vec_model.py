@@ -1,4 +1,3 @@
-#Import all the dependencies
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
 from nltk.tokenize import word_tokenize
 import sys
@@ -38,20 +37,22 @@ def vec_for_learning(model, tagged_docs):
     targets, regressors = zip(*[(doc.tags[0], model.infer_vector(doc.words, steps=20)) for doc in tagged_docs])
     return targets, regressors
 
-def fetch_tagged_data(X, y):
+def fetch_tagged_data(corpus, description, title, y):
     tagged_data = []
-    for i, tokenized_body in enumerate(X):
-        tagged_data.append(TaggedDocument(words=tokenized_body, tags=[y[i]]))
+    for i, tokenized_body in enumerate(corpus):
+        tagged_data.append(TaggedDocument(words=tokenized_body + description[i] + title[i], tags=[y[i]]))
     return tagged_data
 
 
 corpus = []
+title_corpus = []
+description_corpus = []
 dir = utils.content_items_dir()
 items = os.listdir(dir)
 taxon_names = []
 
 pageviews = utils.load_pageviews()
-count = len(pageviews)
+count = 1000#len(pageviews)
 extra_features = False
 locales = []
 primary_publishing_organisations = []
@@ -65,6 +66,8 @@ for i, filename in enumerate(items[0:count]):
         page_views = pageviews[filename]
         example_y = discretizer.transform(np.array([page_views]).reshape(1, -1))[0]
         corpus.append(tokenize_text(body))
+        title_corpus.append(tokenize_text(title))
+        description_corpus.append(tokenize_text(description))
         y.append(example_y[0])
         taxon_name, taxon_count = utils.get_taxon_name_and_count(content_item)
         if taxon_name not in taxon_names:
@@ -102,8 +105,10 @@ for i, filename in enumerate(items[0:count]):
 y = np.asarray(y).transpose()
 extra_features = normalize(extra_features, axis=0, norm='max')
 corpus = np.asarray(corpus)
+title_corpus = np.asarray(title_corpus)
+description_corpus = np.asarray(description_corpus)
 
-kf = KFold(n_splits=3)
+kf = KFold(n_splits=5)
 kf.get_n_splits(len(corpus))
 
 scores = []
@@ -111,8 +116,8 @@ for train_index, test_index in kf.split(corpus):
     X_train, X_test = corpus[train_index], corpus[test_index]
     y_train, y_test = y[train_index], y[test_index]
 
-    tagged_train_data = fetch_tagged_data(X_train, y_train)
-    tagged_test_data = fetch_tagged_data(X_test, y_test)
+    tagged_train_data = fetch_tagged_data(X_train, title_corpus[train_index], description_corpus[train_index], y_train)
+    tagged_test_data = fetch_tagged_data(X_test, title_corpus[test_index], description_corpus[test_index], y_test)
 
     train_model = model(tagged_train_data)
     test_model = model(tagged_test_data)
@@ -124,8 +129,10 @@ for train_index, test_index in kf.split(corpus):
     train_extra_features = np.asarray(extra_features[train_index])
     X_test = np.asarray(X_test)
     test_extra_features = np.asarray(extra_features[test_index])
+
     X_test = np.append(X_test, test_extra_features, axis=1)
     X_train = np.append(X_train, train_extra_features, axis=1)
+
     scores.append(utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test))
 
 print("Average f1 score :" + str(np.mean(scores)))
