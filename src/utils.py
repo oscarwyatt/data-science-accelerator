@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import itertools
 import json
 import math
+from argparse import ArgumentParser
 
 def extract_content_item_body(content_item):
     try:
@@ -155,7 +156,7 @@ def generate_discretizer(pageviews):
     discretizer.fit(view_numbers)
     return [discretizer, view_numbers]
 
-def number_bins()
+def number_bins():
     return 3
 
 def process_view_numbers_for_page(views):
@@ -192,7 +193,7 @@ def get_document_type(document_types, content_item):
 def train_and_test_logistic_regression(X_train, y_train, X_test, y_test, show_cf=False):
     reg = train_logistic_regression(X_train, y_train)
     pred = reg.predict(X_test)
-    confusion_matrix = np.zeros((utils.number_bins(),utils.number_bins()))
+    confusion_matrix = np.zeros((number_bins(),number_bins()))
     if show_cf:
         confusion_matrix = show_confusion_matrix(y_test, pred)
     return [f1_score(y_test, pred, average='micro'), confusion_matrix]
@@ -227,3 +228,13 @@ def plot_confusion_matrix(cnf_matrix):
 
 def schema_types():
     return ['answer', 'calendar', 'case_study', 'consultation', 'contact', 'corporate_information_page', 'detailed_guide', 'document_collection', 'email_alert_signup', 'finder', 'finder_email_signup', 'generic', 'generic_with_external_related_links', 'guide', 'help_page', 'hmrc_manual', 'hmrc_manual_section', 'html_publication', 'knowledge_alpha', 'licence', 'local_transaction', 'manual', 'manual_section', 'news_article', 'organisation', 'person', 'place', 'publication', 'role', 'role_appointment', 'simple_smart_answer', 'specialist_document', 'speech', 'statistical_data_set', 'statistics_announcement', 'take_part', 'taxon', 'topic', 'topical_event_about_page', 'transaction', 'travel_advice', 'working_group', 'world_location', 'world_location_news_article']
+
+def add_arguments():
+    parser = ArgumentParser()
+    parser.add_argument("-d", "--distribution-graph",
+                        default=False, help="Draw a graph of the distribution of the content item pageviews")
+    parser.add_argument("-i", "--feature-importance", default=False, help="Show graph of the importance of various features")
+    parser.add_argument("-c", "--confusion-matrix", default=False, help="Show confusion matrices during training")
+    parser.add_argument("-k", "--k-fold", default=False, help="Perform K-Fold")
+    parser.add_argument("-t", "--test", default=False, help="Split into training and test")
+    return vars(parser.parse_args())

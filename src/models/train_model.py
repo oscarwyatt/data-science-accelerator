@@ -15,7 +15,7 @@ import sys
 from sklearn.ensemble import ExtraTreesClassifier
 import pickle
 from sklearn.preprocessing import normalize
-from argparse import ArgumentParser
+import math
 
 def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
     log = file if hasattr(file,'write') else sys.stderr
@@ -59,7 +59,7 @@ def generate_corpus_and_vectorise(discretizer, pageview_values):
     items = os.listdir(utils.content_items_dir())
     taxon_names = []
 
-    count = 100#len(items)
+    count = len(items)
     extra_features = False
     locales = []
     primary_publishing_organisations = []
@@ -175,13 +175,7 @@ def show_feature_importance(X_extra_features, y):
     plt.xlim([-1, X_extra_features.shape[1]])
     plt.show()
 
-parser = ArgumentParser()
-parser.add_argument("-d", "--distribution-graph",
-					default=False, help="Draw a graph of the distribution of the content item pageviews")
-parser.add_argument("-i", "--feature-importance", default=False, help="Show graph of the importance of various features")
-parser.add_argument("-c", "--confusion-matrix", default=False, help="Show confusion matrices during training")
-
-args = vars(parser.parse_args())
+args = utils.add_arguments()
 pageviews = utils.load_pageviews()
 discretizer, view_numbers = utils.generate_discretizer(pageviews)
 
@@ -195,22 +189,40 @@ X, y = generate_corpus_and_vectorise(discretizer, pageviews)
 if args["feature_importance"]:
     show_feature_importance(X, y)
 
-kf = KFold(n_splits=5)
-kf.get_n_splits(X)
+if args["k_fold"]:
+    kf = KFold(n_splits=5)
+    kf.get_n_splits(X)
 
-scores = []
-confusion_matrix = np.zeros((utils.number_bins(),utils.number_bins()))
-for train_index, test_index in kf.split(X):
-    X_train, X_test = X[train_index], X[test_index]
-    y_train, y_test = y[train_index], y[test_index]
-    score, fold_confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
-    confusion_matrix = confusion_matrix + fold_confusion_matrix
-    scores.append(score)
+    scores = []
+    confusion_matrix = np.zeros((utils.number_bins(),utils.number_bins()))
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+        score, fold_confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
+        confusion_matrix = confusion_matrix + fold_confusion_matrix
+        scores.append(score)
 
-if args["confusion_matrix"]:
-    plot_confusion_matrix(confusion_matrix)
+    if args["confusion_matrix"]:
+        plot_confusion_matrix(confusion_matrix)
 
-print("Average f1 score :" + str(np.mean(scores)))
+    print("Average f1 score :" + str(np.mean(scores)))
+
+if args["test"]:
+    count = len(X)
+    split_index = math.floor(count * 0.8)
+    X_train = X[0:split_index]
+    X_test = X[split_index:]
+    y_train = y[0:split_index]
+    y_test = y[split_index:]
+    score, confusion_matrix = utils.train_and_test_logistic_regression(X_train, y_train, X_test, y_test, args["confusion_matrix"])
+    confusion_matrix
+
+    if args["confusion_matrix"]:
+        plot_confusion_matrix(confusion_matrix)
+
+    print("F1 score for test data :" + str(score))
+
+
 model = utils.train_logistic_regression(X, y)
 model_filename = "logistic_regression_model.pkl"
 pickle.dump(model, open(model_filename, 'wb'))

@@ -44,6 +44,7 @@ def fetch_tagged_data(corpus, description, title, y):
     return tagged_data
 
 
+args = utils.add_arguments()
 corpus = []
 title_corpus = []
 description_corpus = []
